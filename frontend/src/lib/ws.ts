@@ -12,7 +12,7 @@ export function connectTranscriptWs(
 ): () => void {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const host = window.location.host
-  const wsUrl = `${protocol}//${host}/ws/transcript?sessionId=${encodeURIComponent(sessionId)}`
+  const wsUrl = `${protocol}//${host}/ws?sessionId=${encodeURIComponent(sessionId)}`
   const ws = new WebSocket(wsUrl)
 
   let receivedDone = false

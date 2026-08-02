@@ -1,13 +1,15 @@
 /**
  * WebSocket server for live transcript streaming.
- * Client connects with ?sessionId=xxx. Server sends scenario-specific
- * transcript lines at intervals, then signals completion.
+ * Client connects with ?sessionId=xxx.
+ * - For real calls: registers connection to receive live updates
+ * - For simulated mode: sends mock transcript lines at intervals
  */
 
 import { WebSocket } from 'ws'
 import { getSession, appendTranscript, updateSession } from '../sessionStore.js'
+import { registerConnection } from '../services/transcriptBroadcaster.js'
 
-/* ── Scenario transcripts ─────────────────────────────────────────── */
+/* ── Scenario transcripts for simulation mode ──────────────────────── */
 
 const SCENARIO_TRANSCRIPTS: Record<string, string[]> = {
   social_security: [
@@ -73,38 +75,55 @@ export function handleWsConnection(ws: WebSocket, url: string): void {
     return
   }
 
-  // Mark session as in-progress
-  updateSession(sessionId, { status: 'in_progress' })
+  // Check if this is a real call (has callSid and AI enabled)
+  const hasGroqKey = Boolean(process.env.GROQ_API_KEY)
+  const hasElevenLabsKey = Boolean(process.env.ELEVENLABS_API_KEY)
+  const isRealCall = session.callSid && hasGroqKey && hasElevenLabsKey
 
-  const lines = SCENARIO_TRANSCRIPTS[session.scenarioId] ?? DEFAULT_TRANSCRIPT
-  let index = 0
+  if (isRealCall) {
+    // Real call mode: register connection for live updates from conversation manager
+    console.log(`[ws] Real call mode - registering connection for ${sessionId}`)
+    registerConnection(sessionId, ws)
 
-  const timer = setInterval(() => {
-    if (ws.readyState !== WebSocket.OPEN) {
+    // Send any existing transcript lines
+    session.transcript.forEach((line) => {
+      ws.send(JSON.stringify({ line }))
+    })
+  } else {
+    // Simulation mode: send mock transcript lines
+    console.log(`[ws] Simulation mode for ${sessionId}`)
+    updateSession(sessionId, { status: 'in_progress' })
+
+    const lines = SCENARIO_TRANSCRIPTS[session.scenarioId] ?? DEFAULT_TRANSCRIPT
+    let index = 0
+
+    const timer = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        clearInterval(timer)
+        return
+      }
+
+      if (index >= lines.length) {
+        // All lines sent — mark completed and close
+        clearInterval(timer)
+        updateSession(sessionId, { status: 'completed' })
+        ws.send(JSON.stringify({ done: true }))
+        ws.close(1000, 'Simulation complete')
+        return
+      }
+
+      const line = lines[index]
+      index += 1
+      appendTranscript(sessionId, line)
+      ws.send(JSON.stringify({ line }))
+    }, INTERVAL_MS)
+
+    ws.on('close', () => {
       clearInterval(timer)
-      return
-    }
-
-    if (index >= lines.length) {
-      // All lines sent — mark completed and close
-      clearInterval(timer)
-      updateSession(sessionId, { status: 'completed' })
-      ws.send(JSON.stringify({ done: true }))
-      ws.close(1000, 'Simulation complete')
-      return
-    }
-
-    const line = lines[index]
-    index += 1
-    appendTranscript(sessionId, line)
-    ws.send(JSON.stringify({ line }))
-  }, INTERVAL_MS)
-
-  ws.on('close', () => {
-    clearInterval(timer)
-    const s = getSession(sessionId)
-    if (s && s.status === 'in_progress') {
-      updateSession(sessionId, { status: 'completed' })
-    }
-  })
+      const s = getSession(sessionId)
+      if (s && s.status === 'in_progress') {
+        updateSession(sessionId, { status: 'completed' })
+      }
+    })
+  }
 }

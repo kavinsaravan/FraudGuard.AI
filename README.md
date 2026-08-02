@@ -43,20 +43,45 @@ This installs dependencies for the root workspace and for `frontend` and `backen
 
 3. **Optional:** Use the Home page to enter a phone number, pick a scenario, and click Start. You’ll be taken to the Live page (streaming transcript), then after 10 seconds to the Debrief page (score + transcript + risk label).
 
-## How to Use ngrok for Twilio Webhooks
+## Real AI Phone Calls Setup
 
-When you’re ready to receive real Twilio voice webhooks:
+🎉 **NEW:** Real AI-powered phone calls are now implemented!
 
-1. Install [ngrok](https://ngrok.com/).
-2. Expose your local API:
+The app can now:
+- Make real phone calls using Twilio
+- Have interactive AI conversations using Groq LLM
+- Convert text to natural speech using ElevenLabs
+- Transcribe user speech in real-time using Groq Whisper
+- Stream live transcripts to the frontend
+
+### Quick Setup
+
+1. Get API keys from:
+   - [Twilio](https://www.twilio.com) - Phone calls
+   - [Groq](https://console.groq.com) - AI conversation & transcription (FREE)
+   - [ElevenLabs](https://elevenlabs.io) - Voice synthesis
+
+2. Add them to `.env`:
+   ```env
+   TWILIO_ACCOUNT_SID=ACxxxxx
+   TWILIO_AUTH_TOKEN=xxxxx
+   TWILIO_FROM_NUMBER=+1234567890
+   GROQ_API_KEY=gsk_xxxxx
+   ELEVENLABS_API_KEY=xxxxx
+   ```
+
+3. Use ngrok to expose your local server:
    ```bash
    ngrok http 8080
    ```
-3. Copy the HTTPS URL (e.g. `https://abc123.ngrok.io`) into `.env`:
-   ```env
-   PUBLIC_BASE_URL=https://abc123.ngrok.io
-   ```
-4. In the Twilio console, set your voice webhook URL to:
-   `https://abc123.ngrok.io/api/twilio/voice`
 
-(Actual ElevenLabs + Groq integration will plug in later; the code has comments marking where.)
+4. Add ngrok URL to `.env`:
+   ```env
+   PUBLIC_BASE_URL=https://abc123.ngrok-free.app
+   ```
+
+**📚 For detailed setup instructions, see [SETUP_AI_CALLS.md](./SETUP_AI_CALLS.md)**
+
+### Simulation Mode
+
+Without API keys, the app runs in simulation mode with mock transcript streaming (no real calls).
