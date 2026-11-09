@@ -8,19 +8,19 @@ FraudGuard.AI is a scam-call simulation and debrief app. This repo contains the 
 - **Backend:** Express + TypeScript
 - **Live transcript:** WebSocket
 - **Storage:** In-memory session store (no database yet)
-- **Twilio:** Placeholder integration for voice webhooks
+- **Twilio:** Outbound training calls and bidirectional Media Streams
 - **Config:** Environment variables via dotenv
 
 ## How to Install
 
+Use Node.js 22.12 or later.
+
 ```bash
 # From repo root
 npm run install:all
-# or
-npm install
 ```
 
-This installs dependencies for the root workspace and for `frontend` and `backend`.
+This installs dependencies for the root package, `frontend`, and `backend`.
 
 ## How to Run Locally
 
@@ -39,9 +39,11 @@ This installs dependencies for the root workspace and for `frontend` and `backen
    - Frontend: http://localhost:5173
    - API: http://localhost:8080
 
-   If Twilio creds are set in `.env`, starting a session places a real outbound call to the phone number.
+   The API reads the root `.env`. Values in `backend/.env`, if present, take precedence over the root file.
 
-3. **Optional:** Use the Home page to enter a phone number, pick a scenario, and click Start. You’ll be taken to the Live page (streaming transcript), then after 10 seconds to the Debrief page (score + transcript + risk label).
+4. Open the Home page, enter a phone number, pick a scenario, and start a session. The Live page streams the transcript and opens the Debrief after the session ends. With the example environment settings, the session uses a scripted transcript.
+
+Use `npm run dev:dashboard` to open the separate dashboard app in `src/`.
 
 ## Real AI Phone Calls Setup
 

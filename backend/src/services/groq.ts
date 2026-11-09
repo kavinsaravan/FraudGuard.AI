@@ -3,7 +3,7 @@
  * Uses Groq's Llama models for conversation and Whisper for transcription.
  */
 
-import Groq from 'groq-sdk'
+import Groq, { toFile } from 'groq-sdk'
 import { getSession } from '../sessionStore.js'
 
 const groq = new Groq({
@@ -111,8 +111,7 @@ export async function transcribeAudio(
   filename: string = 'audio.wav'
 ): Promise<string> {
   try {
-    // Create a File-like object from the buffer
-    const file = new File([audioBuffer], filename, {
+    const file = await toFile(audioBuffer, filename, {
       type: filename.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav',
     })
 
@@ -120,7 +119,7 @@ export async function transcribeAudio(
       file: file,
       model: 'whisper-large-v3-turbo',
       language: 'en',
-      response_format: 'text',
+      response_format: 'json',
     })
 
     return transcription.text || ''

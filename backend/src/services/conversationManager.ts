@@ -7,12 +7,13 @@ import { WebSocket } from 'ws'
 import { generateScamResponse, generateOpeningMessage, transcribeAudio, type ConversationMessage } from './groq.js'
 import { textToSpeech } from './elevenlabs.js'
 import { AudioAccumulator, mulawToWav, mp3ToMulaw, detectSilence } from '../utils/audio.js'
-import { getSession, appendTranscript, updateSession } from '../sessionStore.js'
+import { appendTranscript, updateSession } from '../sessionStore.js'
 import { broadcastTranscript, broadcastCallEnd } from './transcriptBroadcaster.js'
 
 interface CallState {
   sessionId: string
   twilioWs: WebSocket
+  streamSid: string
   conversationHistory: ConversationMessage[]
   audioAccumulator: AudioAccumulator
   isProcessing: boolean
@@ -27,15 +28,17 @@ const activeCalls = new Map<string, CallState>()
  */
 export async function initializeCall(
   sessionId: string,
-  twilioWs: WebSocket
+  twilioWs: WebSocket,
+  streamSid: string
 ): Promise<void> {
   console.log(`[conversation] Initializing call for session ${sessionId}`)
 
   const state: CallState = {
     sessionId,
     twilioWs,
+    streamSid,
     conversationHistory: [],
-    audioAccumulator: new AudioAccumulator(1500), // 1.5 seconds of audio before processing
+    audioAccumulator: new AudioAccumulator(300),
     isProcessing: false,
     isSpeaking: false,
     silenceTimeout: null,
@@ -64,26 +67,25 @@ export async function handleIncomingAudio(
   audioPayload: string
 ): Promise<void> {
   const state = activeCalls.get(sessionId)
-  if (!state || state.isSpeaking) {
-    // Ignore audio while AI is speaking
+  if (!state || state.isSpeaking || state.isProcessing) {
     return
   }
 
-  // Add chunk to accumulator
-  state.audioAccumulator.addChunk(audioPayload)
+  const audio = Buffer.from(audioPayload, 'base64')
+  const silent = detectSilence(audio)
+  if (silent && state.audioAccumulator.getDuration() === 0) return
 
-  // Clear any existing silence timeout
-  if (state.silenceTimeout) {
-    clearTimeout(state.silenceTimeout)
-    state.silenceTimeout = null
+  state.audioAccumulator.addChunk(audio)
+
+  if (state.audioAccumulator.getDuration() >= 10_000) {
+    await processAccumulatedAudio(sessionId)
+  } else if (!silent) {
+    // Twilio keeps sending frames during silence. Only speech extends the turn.
+    if (state.silenceTimeout) clearTimeout(state.silenceTimeout)
+    state.silenceTimeout = setTimeout(() => {
+      void processAccumulatedAudio(sessionId)
+    }, 1000)
   }
-
-  // Set new silence timeout (process after 1 second of silence)
-  state.silenceTimeout = setTimeout(async () => {
-    if (state.audioAccumulator.hasEnoughAudio() && !state.isProcessing) {
-      await processAccumulatedAudio(sessionId)
-    }
-  }, 1000)
 }
 
 /**
@@ -93,19 +95,15 @@ async function processAccumulatedAudio(sessionId: string): Promise<void> {
   const state = activeCalls.get(sessionId)
   if (!state || state.isProcessing) return
 
+  if (state.silenceTimeout) clearTimeout(state.silenceTimeout)
+  state.silenceTimeout = null
+  const hasEnoughAudio = state.audioAccumulator.hasEnoughAudio()
+  const mulawBuffer = state.audioAccumulator.flush()
+  if (!hasEnoughAudio) return
+
   state.isProcessing = true
 
   try {
-    // Get accumulated audio
-    const mulawBuffer = state.audioAccumulator.flush()
-
-    // Check if it's silence
-    if (detectSilence(mulawBuffer)) {
-      console.log(`[conversation] Silence detected, skipping transcription`)
-      state.isProcessing = false
-      return
-    }
-
     console.log(`[conversation] Processing ${mulawBuffer.length} bytes of audio`)
 
     // Convert to WAV for transcription
@@ -114,11 +112,7 @@ async function processAccumulatedAudio(sessionId: string): Promise<void> {
     // Transcribe with Groq Whisper
     const userMessage = await transcribeAudio(wavBuffer, 'audio.wav')
 
-    if (!userMessage || userMessage.trim().length === 0) {
-      console.log(`[conversation] Empty transcription`)
-      state.isProcessing = false
-      return
-    }
+    if (!userMessage.trim() || activeCalls.get(sessionId) !== state) return
 
     console.log(`[conversation] User said: "${userMessage}"`)
 
@@ -181,7 +175,7 @@ async function speakMessage(
       const chunk = base64Audio.slice(i, i + chunkSize)
       const message = {
         event: 'media',
-        streamSid: state.twilioWs['streamSid'], // We'll set this from Twilio's start event
+        streamSid: state.streamSid,
         media: {
           payload: chunk,
         },

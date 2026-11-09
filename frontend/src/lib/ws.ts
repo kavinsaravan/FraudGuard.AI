@@ -74,5 +74,10 @@ export function connectTranscriptWs(
     if (onError) onError(err)
   }
 
-  return () => ws.close()
+  return () => {
+    ws.onmessage = null
+    ws.onclose = null
+    ws.onerror = null
+    ws.close()
+  }
 }

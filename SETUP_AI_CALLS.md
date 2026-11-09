@@ -15,7 +15,7 @@ This guide walks you through setting up **real AI-powered scam phone calls** usi
 
 ## Prerequisites
 
-- Node.js 18+ installed
+- Node.js 22.12 or later
 - A phone number to test with
 - Credit card for API services (most have free tiers)
 

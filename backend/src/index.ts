@@ -3,7 +3,7 @@
  * Port from env (default 8080). Load env via dotenv.
  */
 
-import 'dotenv/config'
+import './env.js'
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
@@ -26,15 +26,30 @@ app.use('/api/twilio', twilioRouter)
 const server = createServer(app)
 
 // WebSocket for frontend live transcript
-const frontendWss = new WebSocketServer({ server, path: '/ws' })
+const frontendWss = new WebSocketServer({ noServer: true, perMessageDeflate: false })
 frontendWss.on('connection', (ws, req) => {
   handleWsConnection(ws, req.url ?? '')
 })
 
 // WebSocket for Twilio Media Streams
-const mediaStreamWss = new WebSocketServer({ server, path: '/media-stream' })
+const mediaStreamWss = new WebSocketServer({ noServer: true, perMessageDeflate: false })
 mediaStreamWss.on('connection', (ws, req) => {
   handleMediaStreamConnection(ws, req.url ?? '')
+})
+
+server.on('upgrade', (req, socket, head) => {
+  const pathname = req.url?.split('?')[0]
+  const target = pathname === '/ws' ? frontendWss :
+    pathname === '/media-stream' ? mediaStreamWss : null
+
+  if (!target) {
+    socket.destroy()
+    return
+  }
+
+  target.handleUpgrade(req, socket, head, (ws) => {
+    target.emit('connection', ws, req)
+  })
 })
 
 server.listen(PORT, () => {

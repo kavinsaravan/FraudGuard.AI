@@ -93,11 +93,10 @@ export class AudioAccumulator {
   }
 
   /**
-   * Add an audio chunk (base64-encoded μ-law from Twilio)
+   * Add a decoded packet of μ-law audio
    */
-  addChunk(base64Audio: string): void {
-    const buffer = Buffer.from(base64Audio, 'base64')
-    this.chunks.push(buffer)
+  addChunk(audio: Buffer): void {
+    this.chunks.push(audio)
   }
 
   /**
@@ -141,10 +140,13 @@ export class AudioAccumulator {
 export function detectSilence(audioBuffer: Buffer, threshold: number = 500): boolean {
   if (audioBuffer.length === 0) return true
 
-  // Calculate RMS energy
+  // Decode μ-law sample magnitudes to linear PCM before calculating RMS.
   let sum = 0
   for (let i = 0; i < audioBuffer.length; i++) {
-    const sample = audioBuffer[i] - 128 // μ-law is unsigned, center around 0
+    const value = audioBuffer[i] ^ 0xff
+    const exponent = (value >> 4) & 0x07
+    const mantissa = value & 0x0f
+    const sample = (((mantissa << 3) + 132) << exponent) - 132
     sum += sample * sample
   }
   const rms = Math.sqrt(sum / audioBuffer.length)

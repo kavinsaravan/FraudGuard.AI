@@ -19,12 +19,12 @@ export async function textToSpeech(text: string, voiceId?: string): Promise<Buff
   try {
     const audio = await elevenlabs.textToSpeech.convert(voiceId || DEFAULT_VOICE_ID, {
       text,
-      model_id: 'eleven_turbo_v2_5', // Fast, low-latency model
-      voice_settings: {
+      modelId: 'eleven_turbo_v2_5', // Fast, low-latency model
+      voiceSettings: {
         stability: 0.5,
-        similarity_boost: 0.75,
+        similarityBoost: 0.75,
         style: 0.5,
-        use_speaker_boost: true,
+        useSpeakerBoost: true,
       },
     })
 

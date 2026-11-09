@@ -50,12 +50,9 @@ export function handleMediaStreamConnection(ws: WebSocket, url: string): void {
               `[mediaStream] Stream started: ${streamSid}, Session: ${sessionId}`
             )
 
-            // Store streamSid on the WebSocket object for later use
-            ws['streamSid'] = streamSid
-
             if (sessionId) {
               // Initialize the AI conversation
-              await initializeCall(sessionId, ws)
+              await initializeCall(sessionId, ws, streamSid)
             } else {
               console.error('[mediaStream] No sessionId in custom parameters!')
             }

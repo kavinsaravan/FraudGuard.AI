@@ -634,7 +634,7 @@ server.on("upgrade", (req, socket, head) => {
     return;
   }
 
-  if (pathname === "/ws/transcript") {
+  if (pathname === "/ws" || pathname === "/ws/transcript") {
     wssBrowser.handleUpgrade(req, socket, head, (ws) => {
       wssBrowser.emit("connection", ws, req);
     });

@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
+    "install:all": "npm install && npm --prefix frontend install && npm --prefix backend install",
+    "dev": "node scripts/dev.cjs",
+    "dev:dashboard": "vite",
     "build": "cd frontend && npm install && npm run build",
     "start": "node server.js",
     "lint": "eslint .",
