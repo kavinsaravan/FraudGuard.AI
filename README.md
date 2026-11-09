@@ -45,11 +45,8 @@ This installs dependencies for the root workspace and for `frontend` and `backen
 
 ## Real AI Phone Calls Setup
 
-🎉 **NEW:** Real AI-powered phone calls are now implemented!
-
-The app can now:
-- Make real phone calls using Twilio
-- Have interactive AI conversations using Groq LLM
+- Makes real phone calls using Twilio
+- Interactive AI conversations using Groq LLM
 - Convert text to natural speech using ElevenLabs
 - Transcribe user speech in real-time using Groq Whisper
 - Stream live transcripts to the frontend
